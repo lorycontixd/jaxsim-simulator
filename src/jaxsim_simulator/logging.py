@@ -43,19 +43,42 @@ class LogFormatter(logging.Formatter):
         return super(LogFormatter, self).format(record, *args, **kwargs)
 
 def _logger() -> logging.Logger:
-    logger = logging.getLogger(name=LOGGER_NAME)
+    return logging.getLogger(name=LOGGER_NAME)
+
+    
+def configure(level: LoggingLevel = LoggingLevel.WARNING, file_path: str = None) -> None:
+    info("Configuring the 'jaxsim-simulator' logger")
+    print("Configuring the 'jaxsim-simulator' logger")
+
+    # Do not propagate the messages to handlers of parent loggers
+    # (preventing duplicate logging)
+    _logger().propagate = False
 
     # Check if logger already has a stream handler
     has_ch: bool = False
-    for handler in logger.handlers:
+    for handler in _logger().handlers:
         if isinstance(handler, logging.StreamHandler):
-            return logger
+            has_ch = True
+            break
 
-    ch = logging.StreamHandler()
-    ch.setLevel(logger.level)
-    ch.setFormatter(fmt=coloredlogs.ColoredFormatter(fmt=FMT))
-    logger.addHandler(ch)
-    return logger
+    if not has_ch:
+        ch = logging.StreamHandler()
+        ch.setLevel(_logger().level)
+        ch.setFormatter(fmt=coloredlogs.ColoredFormatter(fmt=FMT))
+        _logger().addHandler(ch)
+
+    if file_path is not None:
+        assert isinstance(file_path, str)
+        has_fh: bool = False
+        for handler in _logger().handlers:
+            if isinstance(handler, logging.FileHandler):
+                has_fh = True
+                break
+        if not has_fh:
+            add_file_handler(file_path)
+
+    set_logging_level(level=level)
+
     
 def add_file_handler(file_path: str) -> None:
     for handler in _logger().handlers:
@@ -87,21 +110,6 @@ def set_logging_level(level: Union[int, LoggingLevel] = LoggingLevel.WARNING):
 def get_logging_level() -> LoggingLevel:
     level = _logger().getEffectiveLevel()
     return LoggingLevel(level)
-
-
-def configure(level: LoggingLevel = LoggingLevel.WARNING) -> None:
-    info("Configuring the 'jaxsim' logger")
-
-    handler = logging.StreamHandler()
-    handler.setFormatter(fmt=FMT)
-    _logger().addHandler(hdlr=handler)
-
-    # Do not propagate the messages to handlers of parent loggers
-    # (preventing duplicate logging)
-    _logger().propagate = False
-
-    set_logging_level(level=level)
-
 
 def debug(msg: str = "") -> None:
     _logger().debug(msg=msg)
